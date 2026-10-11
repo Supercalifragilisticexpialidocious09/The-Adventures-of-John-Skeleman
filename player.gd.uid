@@ -1,0 +1,177 @@
+extends CharacterBody2D
+
+#Variable that determines wheter or not the player is able to be attacked
+var enemy_inattack_range = false
+#Variable that determine how often an enemy can attack the player
+var enemy_attack_cooldown = true
+#Determines the health of the player and can be used to see if the player charcter is dead or not
+var health = 120
+var player_alive = true
+#Determines whether or not an attack is in progress
+var attack_ip = false
+
+#Controls the speed of the player
+const speed = 50
+var current_dir = "none"
+#Makes it so the player starts in their idle animation
+func _ready():
+	$AnimatedSprite2D.play("Idle")
+
+#Allows physics to work
+func _physics_process(delta):
+	player_movement(delta)
+	#Calls the function that allows enemies to attack the player
+	enemy_attack()
+	#Calls the function that allows the player to attack enemies 
+	attack()
+	#Updates the health
+	update_health()
+	#Makes the player fast
+	
+	
+	#Makes it so the player can die
+	if health <= 0:
+		player_alive = false
+		health = 0 
+		print("player has been killed")
+		get_tree().change_scene_to_file("res://Scenes (TAOJS)/Death_screen.tscn")
+
+#Makes the player character move
+func player_movement(delta):
+	# Allows the player to control their characters movement
+	# Makes it so an animation of the player character moving plays when they press a button
+	if Input.is_action_pressed("ui_right"):
+		current_dir = "right"
+		play_anim(1)
+		velocity.x = speed
+		velocity.y = 0
+	elif Input.is_action_pressed("ui_left"):
+		current_dir = "left"
+		play_anim(1)
+		velocity.x = -speed
+		velocity.y = 0
+	elif Input.is_action_pressed("ui_down"):
+		current_dir = "down"
+		play_anim(1)
+		velocity.y = speed
+		velocity.x = 0
+	elif Input.is_action_pressed("ui_up"):
+		current_dir = "up"
+		play_anim(1)
+		velocity.y = -speed
+		velocity.x = 0
+	else:
+		play_anim(0)
+		velocity.x = 0
+		velocity.y = 0 
+	
+	move_and_slide()
+	
+	#Makes it so animations play when they move
+func play_anim(movement):
+	var dir = current_dir
+	var anim = $AnimatedSprite2D
+	#Makes it so different animations play depending on what direction they are moving
+	# The attack_ip == false: makes it so if the player is attacking, other animations don't play
+	if dir == "right":
+		anim.flip_h = false
+		if movement == 1:
+			anim.play("Side_walk")
+		elif movement == 0:
+			if attack_ip == false:
+				anim.play("Side_Idle")
+	if dir == "left":
+		anim.flip_h = true
+		if movement == 1:
+			anim.play("Side_walk")
+		elif movement == 0:
+			if attack_ip == false:
+				anim.play("Side_Idle")
+	if dir == "down":
+		anim.flip_h = true
+		if movement == 1:
+			anim.play("Front_walk")
+		elif movement == 0:
+			if attack_ip == false:
+				anim.play("Idle")
+	if dir == "up":
+		anim.flip_h = true
+		if movement == 1:
+			anim.play("Back_walk")
+		elif movement == 0:
+			if attack_ip == false:
+				anim.play("Back_idle")
+func player():
+	pass
+#Makes it so enemies can interact with the player when they get within range
+func _on_player_hitbox_body_entered(body: Node2D) -> void:
+	if body.has_method("enemy"):
+		enemy_inattack_range = true
+#Makes it so the enemy stops chasing the player when they get too far away
+func _on_player_hitbox_body_exited(body: Node2D) -> void:
+	if body.has_method("enemy"):
+		enemy_inattack_range = false
+#Makes it so the enemy cannot attack too many times
+#Also makes it so the player loses health when they get "attacked"
+func enemy_attack():
+	if enemy_inattack_range and enemy_attack_cooldown == true:
+		health = health - 20
+		enemy_attack_cooldown = false
+		$attack_cooldown.start()
+		print(health)
+#Makes it so the player can't be attacked by an enemy too many times
+func _on_attack_cooldown_timeout():
+	enemy_attack_cooldown = true 
+
+func attack():
+	var dir = current_dir
+	#Makes it so the player can attack
+	if Input.is_action_just_pressed("attack"):
+		Global.player_current_attack = true
+		#Plays set animations when attacking that depend on the direction the player faces
+		attack_ip = true 
+		if dir == "right":
+			$AnimatedSprite2D.flip_h = false
+			$AnimatedSprite2D.play("Side_Attack")
+			$deal_attack_timer.start()
+		if dir == "left":
+			$AnimatedSprite2D.flip_h = true
+			$AnimatedSprite2D.play("Side_Attack")
+			$deal_attack_timer.start()
+		if dir == "down":
+			$AnimatedSprite2D.flip_h = false
+			$AnimatedSprite2D.play("Front_Attack")
+			$deal_attack_timer.start()
+		if dir =="up":
+			$AnimatedSprite2D.flip_h = false
+			$AnimatedSprite2D.play("Back_Attack")
+			$deal_attack_timer.start()
+			
+
+#Makes it so the player can only attack so many times over a set period of time
+func _on_deal_attack_timer_timeout():
+	$deal_attack_timer.stop()
+	Global.player_current_attack = false
+	attack_ip = false
+
+#Makes it so the health actually changes
+func update_health():
+	#Creates a variable that affects the "healthbar" node
+	var healthbar = $healthbar
+	#Makes it so the health bar is determined by the health of the player
+	healthbar.value = health
+	#Makes it so the health bar is only visible if your health is high enough
+	if health >= 120:
+		healthbar.visible = false
+	else:
+		healthbar.visible = true
+		
+	
+#Makes it so the player regenerates after the timer runs out
+func _on_regin_timer_timeout() -> void:
+	if health < 120:
+		health = health + 20
+		if health > 120:
+			health = 120
+	if health <= 0:
+		health = 0
