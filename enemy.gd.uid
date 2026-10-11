@@ -1,0 +1,69 @@
+extends CharacterBody2D
+
+class_name Enemy #Creates a class that the player can identify and attack
+
+#Determines the speed of the slime enemy
+var speed = 50
+var player_chase = false
+var player = null
+
+#Determines how much health the slime enemy has
+var health = 60
+#Determines whether or not the player is wihin attack range
+var player_inattack_zone = false
+#Determines whether or not the slime enemy can take damage
+var can_take_damage = true
+
+#Makes it so the slime enemy chases the player based on their position
+func _physics_process(delta):
+	#Used to determine what happens when the slime takes damage
+	deal_with_damage()
+	
+	if player_chase:
+		position += (player.position - position)/speed
+		#Makes it so animation play when the slime enemy moves
+		$AnimatedSprite2D.play("walk")
+		if(player.position.x - position.x) < 0:
+			$AnimatedSprite2D.flip_h = true
+		else:
+			$AnimatedSprite2D.flip_h = false
+	else:
+		$AnimatedSprite2D.play("idle")
+#Makes it so the slime enemy chases the player when they get close enough
+func _on_detection_area_body_entered(body: Node2D) -> void:
+	player = body 
+	player_chase = true
+#Makes it so the slime enemy stops chasing the player when they get too far away
+func _on_detection_area_body_exited(body: Node2D) -> void:
+	player = null
+	player_chase = false
+	
+func enemy():
+	pass 
+
+#Makes it so the player can be attacked by the slime if they are close enough
+func _on_enemy_hitbox_body_entered(body):
+	if body.has_method("player"):
+		player_inattack_zone = true 
+	
+
+#Makes it so the slime stops attacking when the player get's too far away
+func _on_enemy_hitbox_body_exited(body: Node2D):
+	if body.has_method("player"):
+		player_inattack_zone = false
+		#Makes it so the slime can take damage if within range
+func deal_with_damage():
+	#Deterines how much damage the slime takes
+	if player_inattack_zone and Global.player_current_attack == true:
+		if can_take_damage == true: 
+			health = health - 20
+			$take_damage_cooldown.start()
+			can_take_damage = false
+			print("slime health =", health)
+			#Makes it so the slime can die
+			if health <= 0:
+				self.queue_free()
+
+#Makes it so the player can't attack the slime too much
+func _on_take_damage_cooldown_timeout():
+	can_take_damage = true 
